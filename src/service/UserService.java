@@ -10,24 +10,20 @@ public class UserService
         String encryptedPassword = PasswordUtil.encrypt(password);
         return UserDAO.registerUser(name, encryptedPassword, email);
     }
-    public static boolean login(String username, String password) {
+
+    public static String login(String username, String password) {
         String storedPassword = UserDAO.getPasswordByUsername(username);
         if (storedPassword == null) {
-            System.out.println("❌ 用户不存在！");
-            return false;
+            return "❌ 用户不存在！";
         }
         if (storedPassword.equals(PasswordUtil.encrypt(password))) {
-            System.out.println("✅ 登录成功！");
-            return true;
+            return "✅ 登录成功！";
         } else {
-            System.out.println("❌ 密码错误！");
-            return false;
+            return "❌ 密码错误！";
         }
     }
 
-    public static String getuserInfo(String username) {
-        return UserDAO.getUserInfo(username);
-    }
+
 
 
 }

@@ -1,7 +1,7 @@
 package dao;
 
 import util.DBUtil;
-
+import model.User;
 import java.sql.*;
 
 public class UserDAO
@@ -31,13 +31,13 @@ public class UserDAO
             pstmt.setString(1, username);
             ResultSet rs = pstmt.executeQuery();
             if (rs.next()) {
-                return rs.getString("password");  // 返回数据库中的加密密码
+                return rs.getString("password");
             }
         } catch (SQLException e) {
             e.printStackTrace();
             System.err.println("查询密码时候出错\n" + e.getMessage());
         }
-        return null;  // 用户不存在
+        return null;
     }
 
     public static boolean userExists(String username) {
@@ -57,24 +57,26 @@ public class UserDAO
         return false;
     }
 
-    public static String getUserInfo(String username) {
+    public static User getUserInfo(String username) {
         String sql = "SELECT username, email, created_at FROM users WHERE username = ?";
-        try(Connection conn = DBUtil.getConnection();
-            PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, username);
             ResultSet rs = pstmt.executeQuery();
             if (rs.next()) {
-                String email = rs.getString("email");
-                String registerTime = rs.getString("created_at");
-                return "用户名: " + username + "\n邮箱: " + email + "\n注册时间: " + registerTime;
+                return new User(
+                        rs.getString("username"),
+                        rs.getString("email"),
+                        rs.getString("created_at")
+                );
             }
-
-        }catch(SQLException e){
+        } catch (SQLException e) {
             e.printStackTrace();
-            return "查询用户时候出错\n" + e.getMessage();
+            System.err.println("查询用户信息时出错：" + e.getMessage());
         }
-        return "用户不存在";
+        return null;  // 查询不到返回 null
     }
+
 
     public static int getUserID(String username) {
         String sql = "SELECT id FROM users WHERE username = ?";
