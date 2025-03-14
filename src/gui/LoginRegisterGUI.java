@@ -84,6 +84,8 @@ public class LoginRegisterGUI extends JFrame implements ActionListener {
 
             JOptionPane.showMessageDialog(this, loginResult);
             if (loginResult.contains("✅ 登录成功")) {
+                loginUserText.setText("");
+                loginPasswordText.setText("");
                 setVisible(false); // 隐藏登录窗口
                 new MainFrame(username); // 打开主界面，并传递登录窗口
             }
