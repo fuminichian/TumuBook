@@ -19,16 +19,18 @@ public class MainFrame extends JFrame implements ActionListener {
     private String username;
     private int userId;
     private DefaultListModel<Note> noteListModel;
-    private JList<Note> noteList; // 确保使用类成员变量
+    private JList<Note> noteList;
     private JButton addButton, editButton, deleteButton, logoutButton;
     private JButton userInfoButton;
+    private JTextField searchField;
+    private JButton searchButton;
 
 
     public MainFrame(String username) {
         this.username = username;
         this.userId = UserDAO.getUserID(username);
         noteListModel = new DefaultListModel<>();
-        noteList = new JList<>(noteListModel); // 使用类成员变量初始化 noteList
+        noteList = new JList<>(noteListModel);
         JScrollPane scrollPane = new JScrollPane(noteList);
         add(scrollPane);
 
@@ -47,6 +49,19 @@ public class MainFrame extends JFrame implements ActionListener {
     private void initUI() {
         JPanel panel = new JPanel(new BorderLayout());
 
+        // 搜索框和按钮
+        JPanel searchPanel = new JPanel();
+        searchField = new JTextField(20);
+        searchButton = new JButton("搜索");
+
+        searchButton.addActionListener(e -> searchNotes());
+
+        searchPanel.add(new JLabel("搜索: "));
+        searchPanel.add(searchField);
+        searchPanel.add(searchButton);
+
+        panel.add(searchPanel, BorderLayout.NORTH);
+
         // 笔记列表
         noteListModel = new DefaultListModel<>();
         noteList = new JList<>(noteListModel);
@@ -59,12 +74,22 @@ public class MainFrame extends JFrame implements ActionListener {
                 if (e.getClickCount() == 2) { // 双击打开详细信息
                     int selectedIndex = noteList.getSelectedIndex();
                     if (selectedIndex != -1) {
-                        Note selectedNote = noteListModel.getElementAt(selectedIndex);
-                        new NoteDetailFrame(selectedNote);
+                        Note selectedNote = noteListModel.getElementAt(selectedIndex); // 获取选中的 Note 对象
+                        new NoteDetailFrame(selectedNote); // 打开详细信息窗口
                     }
                 }
             }
         });
+        noteList.setCellRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                if (value instanceof Note) {
+                    value = ((Note) value).getTitle(); // 只显示标题
+                }
+                return super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+            }
+        });
+
 
         panel.add(new JScrollPane(noteList), BorderLayout.CENTER);
 
@@ -92,13 +117,14 @@ public class MainFrame extends JFrame implements ActionListener {
         add(panel);
     }
 
+
     private void loadNotes(String username) {
-        noteListModel.clear();  // 清空旧数据
+        noteListModel.clear();
 
         List<Note> notes = NoteDAO.getNotebookInfo(userId);
 
         for (Note note : notes) {
-            noteListModel.addElement(note);  // 添加笔记到模型中
+            noteListModel.addElement(note);
         }
     }
 
@@ -112,7 +138,7 @@ public class MainFrame extends JFrame implements ActionListener {
             deleteNote();
         } else if (e.getSource() == logoutButton) {
             logout();
-        }else if (e.getSource() == userInfoButton) { // 点击用户信息按钮
+        }else if (e.getSource() == userInfoButton) {
             showUserInfo();
         }
     }
@@ -231,6 +257,7 @@ public class MainFrame extends JFrame implements ActionListener {
             return;
         }
 
+        // 构造用户信息消息
         String message = String.format(
                 "用户名: %s\n邮箱: %s\n注册时间: %s",
                 user.getUsername(),
@@ -238,8 +265,58 @@ public class MainFrame extends JFrame implements ActionListener {
                 user.getRegisterTime()
         );
 
-        JOptionPane.showMessageDialog(this, message, "用户信息", JOptionPane.INFORMATION_MESSAGE);
+        // 创建带有注销按钮的对话框
+        int option = JOptionPane.showOptionDialog(
+                this,
+                message,
+                "用户信息",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.INFORMATION_MESSAGE,
+                null,
+                new String[]{"注销", "关闭"},
+                "关闭"
+        );
+
+        if (option == JOptionPane.YES_OPTION) { // 如果用户选择 "注销"
+            int confirm = JOptionPane.showConfirmDialog(
+                    this,
+                    "确认要注销该用户吗？该操作不可恢复！",
+                    "确认注销",
+                    JOptionPane.YES_NO_OPTION
+            );
+
+            if (confirm == JOptionPane.YES_OPTION) {
+                if (UserDAO.deleteUser(userId)) {  // 删除用户
+                    JOptionPane.showMessageDialog(this, "账户已成功注销！");
+                    // 关闭当前窗口，并返回登录界面
+                    this.dispose(); // 关闭当前界面
+                    LoginRegisterGUI.getInstance().setVisible(true); // 打开登录界面
+                } else {
+                    JOptionPane.showMessageDialog(this, "注销失败，请稍后再试。", "错误", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }
     }
+
+
+    private void searchNotes() {
+        String keyword = searchField.getText().trim();
+        if (keyword.isEmpty()) {
+            loadNotes(username);
+            return;
+        }
+
+        List<Note> filteredNotes = NoteService.searchNotesByKeywordOrTag(userId, keyword);
+        updateNoteList(filteredNotes);
+    }
+
+    private void updateNoteList(List<Note> notes) {
+        noteListModel.clear();  // 清空现有的列表
+        for (Note note : notes) {
+            noteListModel.addElement(note);  // 添加 Note 对象，而不是 note.getTitle()
+        }
+    }
+
 
 
 }

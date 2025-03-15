@@ -8,6 +8,9 @@ import java.sql.SQLException;
 import model.Note;
 import java.util.List;
 import java.util.ArrayList;
+import model.Tag;
+import dao.TagDAO;
+import java.sql.Statement;
 
 public class NoteDAO {
     public static boolean addNote(int userId, String title, String content) {
@@ -37,14 +40,18 @@ public class NoteDAO {
             pstmt.setInt(1, userId);
             ResultSet rs = pstmt.executeQuery();
 
-            while (rs.next()) {  // 遍历所有笔记
+            while (rs.next()) {
                 int id = rs.getInt("id");
                 String title = rs.getString("title");
                 String content = rs.getString("content");
                 String createTime = rs.getString("create_time");
                 String updateTime = rs.getString("update_time");
 
-                notes.add(new Note(id, title, content, createTime, updateTime));
+                // 获取该笔记的所有标签
+                List<Tag> tags = TagDAO.getTagsForNote(id);
+
+                // 创建笔记对象并加入列表
+                notes.add(new Note(id, title, content, createTime, updateTime, tags));
             }
 
         } catch (SQLException e) {
@@ -53,6 +60,7 @@ public class NoteDAO {
 
         return notes;
     }
+
 
 
     public static Boolean updateNote(int userId, String title, String content,int notebookId) {
@@ -86,6 +94,99 @@ public class NoteDAO {
             return false;
         }
     }
+
+    public static void addTagToNote(int noteId, String tagName) {
+        // 首先检查标签是否已经存在
+        String selectSql = "SELECT id FROM tags WHERE name = ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement selectPstmt = conn.prepareStatement(selectSql)) {
+            selectPstmt.setString(1, tagName);
+            ResultSet rs = selectPstmt.executeQuery();
+            int tagId = -1;
+            if (rs.next()) {
+                tagId = rs.getInt("id");
+            } else {
+                // 如果标签不存在，则插入新标签
+                String insertTagSql = "INSERT INTO tags (name) VALUES (?)";
+                try (PreparedStatement insertPstmt = conn.prepareStatement(insertTagSql, Statement.RETURN_GENERATED_KEYS)) {
+                    insertPstmt.setString(1, tagName);
+                    insertPstmt.executeUpdate();
+                    rs = insertPstmt.getGeneratedKeys();
+                    if (rs.next()) {
+                        tagId = rs.getInt(1);
+                    }
+                }
+            }
+            // 将标签和笔记关联
+            if (tagId != -1) {
+                String insertNoteTagSql = "INSERT INTO note_tags (note_id, tag_id) VALUES (?, ?)";
+                try (PreparedStatement insertNoteTagPstmt = conn.prepareStatement(insertNoteTagSql)) {
+                    insertNoteTagPstmt.setInt(1, noteId);
+                    insertNoteTagPstmt.setInt(2, tagId);
+                    insertNoteTagPstmt.executeUpdate();
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static List<Tag> getAllTags() {
+        List<Tag> tags = new ArrayList<>();
+        String sql = "SELECT id, name FROM tags";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                int id = rs.getInt("id");
+                String name = rs.getString("name");
+                tags.add(new Tag(id, name));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return tags;
+    }
+
+
+
+
+    public static List<Tag> getTagsForNote(int noteId) {
+        List<Tag> tags = new ArrayList<>();
+        String sql = "SELECT t.id, t.name FROM tags t " +
+                "JOIN note_tags nt ON t.id = nt.tag_id " +
+                "WHERE nt.note_id = ?";
+
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, noteId);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                int id = rs.getInt("id");
+                String name = rs.getString("name");
+                tags.add(new Tag(id, name));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return tags;
+    }
+
+//    public static Note getNoteWithTags(int userId) {
+//        // 获取笔记信息
+//        Note note = getNotebookInfo(userId);
+//        if (note == null) return null; // 防止空指针异常
+//
+//        // 获取该笔记的所有标签
+//        List<Tag> tags = TagDAO.getTagsForNote(userId);
+//
+//        // 将标签传递给 Note
+//        return new Note(note.getId(), note.getTitle(), note.getContent(), note.getCreateTime(), note.getUpdateTime(), tags);
+//    }
+
+
+
+
 
 
 

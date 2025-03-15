@@ -93,4 +93,35 @@ public class UserDAO
         }
         return -1;
     }
+
+    public static boolean deleteUser(int userId) {
+        String sql1 = "DELETE FROM notebook WHERE user_id = ?";
+        String sql2 = "DELETE FROM users WHERE id = ?";
+        try (Connection conn = DBUtil.getConnection()) {
+            conn.setAutoCommit(false); // 开启事务
+
+            // 删除用户的所有笔记
+            try (PreparedStatement pstmtNotes = conn.prepareStatement(sql1)) {
+                pstmtNotes.setInt(1, userId);
+                pstmtNotes.executeUpdate();
+            }
+
+            // 删除用户
+            try (PreparedStatement pstmtUser = conn.prepareStatement(sql2)) {
+                pstmtUser.setInt(1, userId);
+                int affectedRows = pstmtUser.executeUpdate();
+
+                if (affectedRows > 0) {
+                    conn.commit(); // 提交事务
+                    return true;
+                } else {
+                    conn.rollback(); // 回滚事务
+                    return false;
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 }
